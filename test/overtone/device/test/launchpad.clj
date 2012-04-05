@@ -1,5 +1,5 @@
-(ns overtone.grid.test.launchpad
-  (:use [overtone.grid.launchpad] :reload)
+(ns overtone.device.test.launchpad
+  (:use [overtone.device.launchpad] :reload)
   (:use [midje.sweet])
   (:import (javax.sound.midi ShortMessage)))
 

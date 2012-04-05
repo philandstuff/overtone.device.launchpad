@@ -1,37 +1,23 @@
-    +---+---+---+---+---+---+---+---+
-    |   |   |   |   |   |   |   |   |
-    +---+---+---+---+---+---+---+---+
-    |   |   |   |   |   |   |   |   |
-    +---+---+---+---+---+---+---+---+
-    |   |   | G |   |   |   |   |   |
-    +---+---+---+---+---+---+---+---+
-    |   |   |   | R |   |   |   |   |
-    +---+---+---+---+---+---+---+---+
-    |   |   |   |   | I |   |   |   |
-    +---+---+---+---+---+---+---+---+
-    |   |   |   |   |   | D |   |   |
-    +---+---+---+---+---+---+---+---+
-    |   |   |   |   |   |   |   |   |
-    +---+---+---+---+---+---+---+---+
-    |   |   |   |   |   |   |   |   |
-    +---+---+---+---+---+---+---+---+
+# overtone.device.launchpad
 
-
-An abstraction for button-grid based controllers such as the monome.
-
-## Optional dependencies
-
-* [monome-serial](http://github/samaaron/monome-serial) for monome support
-* [midi-clj](https://github.com/overtone/midi-clj) for launchpad support
+Interact with the Novation Launchpad from within Clojure.
 
 ## Usage
 
     (def grid (make-launchpad))
+    
+    ;; Interact with the main body of buttons using the Grid protocol
+    ;; from overtone.device.grid:
+    
     (led-set grid 1 2 1) ; red
     (led-set grid 1 2 2) ; green
     (led-set grid 1 2 3) ; yellow
     (led-set grid 1 2 0) ; off
-    (on-action grid (fn [event x y] (led-set grid x y (if (= :press event) 1 0))) nil nil)
+    (on-action grid :handler-name (fn [event x y] (led-set grid x y
+    (if (= :press event) 1 0))))
+    
+    ;; Interact with the peripheral circular buttons using the
+    ;; MetaKeys protocol:
     (meta-on-action grid (fn [event key] (meta-led-set grid key (if (= :press event) 2 0))))
 
 ## Contributors

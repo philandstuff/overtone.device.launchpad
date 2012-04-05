@@ -1,5 +1,6 @@
-(ns overtone.grid.launchpad
-  (:use [overtone grid midi]
+(ns overtone.device.launchpad
+  (:use [overtone.device.grid]
+        [overtone.midi]
         [clojure.set :only [map-invert]])
   (:require [clojure.stacktrace])
   (:import (javax.sound.midi ShortMessage)))
