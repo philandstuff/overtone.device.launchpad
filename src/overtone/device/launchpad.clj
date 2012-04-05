@@ -141,9 +141,9 @@
   (meta-on-action [this f]
     (swap! callbacks assoc :metakeys-handler f))
   Grid
-  (on-action [this f group name]   ; currently ignoring group and name
+  (on-action [this key f]   ; currently ignoring key
     (swap! callbacks assoc :grid-handler f))
-  (set-all-leds [this colour]
+  (led-set-all [this colour]
     (led-frame this (repeat 8 (repeat 8 colour))))
   (led-set [this x y colour]
     (midi-note-on launchpad-out (coords->midi-note x y) (both-buffers (colours (palette colour)))))
