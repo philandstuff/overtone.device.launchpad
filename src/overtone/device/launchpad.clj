@@ -141,6 +141,8 @@
   (meta-on-action [this f]
     (swap! callbacks assoc :metakeys-handler f))
   Grid
+  (width [this] 8)
+  (height [this] 8)
   (on-action [this key f]   ; currently ignoring key
     (swap! callbacks assoc :grid-handler f))
   (led-set-all [this colour]
