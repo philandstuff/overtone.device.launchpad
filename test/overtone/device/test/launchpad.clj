@@ -50,6 +50,10 @@
 (fact "make-ShortMessage can create valid note-on messages on different channels"
   (make-ShortMessage 2 :note-on 4 6) => (two-byte-message (doto (ShortMessage.) (.setMessage 0x90 2 4 6))))
 
+(fact "Metakeys can be looked up via a Midi event"
+  (get-metakey {:cmd ShortMessage/NOTE_ON :note 24 :vel 127}) => :pan
+  (get-metakey {:cmd ShortMessage/CONTROL_CHANGE :note 111}) => :mixer)
+
 (let [handler (midi-handler (atom {:grid-handler (fn [event x y] [event x y]) :metakeys-handler (fn [event key] [event key])}))]
   (fact "Midi handler forwards regular note-on messages to grid handler and translates coordinates"
     (handler {:cmd ShortMessage/NOTE_ON :vel 127 :note 0   } -1) => [:press   0 0]

@@ -18,6 +18,8 @@
 (def cmd->java-cmd (map-invert midi-shortmessage-command))
 
 (defn make-ShortMessage
+  ([midi-msg]
+    (apply make-ShortMessage ((juxt :cmd :note :vel) midi-msg)))
   ([cmd byte1 byte2]
      {:pre [(contains? cmd->java-cmd cmd)]}
      (doto (ShortMessage.)
@@ -57,7 +59,7 @@
 ;;; 4r003 <- LED red, single buffer
 ;;;
 ;;; The first crumb is the green value; the last crumb is the red
-;;; value. They separately controls a green and a red LED
+;;; value. They separately control a green and a red LED
 ;;; respectively. Setting a value of 1 or 2 rather than 3 dims the
 ;;; LED. You can get other colours by mixing red and green; eg the
 ;;; launchpad programmer's reference suggests 4r333 (63) for amber and
@@ -81,30 +83,39 @@
   (bit-or colour 4r030))
 
 (def metakeys->midi
-  {:up [:control-change 104] 
-   :down [:control-change 105]
-   :left [:control-change 106] 
-   :right [:control-change 107] 
-   :session [:control-change 108]
-   :user1 [:control-change 109]
-   :user2 [:control-change 110]
-   :mixer [:control-change 111]
-   :vol [:note-on 8]
-   :pan [:note-on 24]
-   :snda [:note-on 40]
-   :sndb [:note-on 56]
-   :stop [:note-on 72]
-   :trkon [:note-on 88]
-   :solo [:note-on 104]
-   :arm [:note-on 120]})
+  {:up      {:cmd :control-change :note 104}
+   :down    {:cmd :control-change :note 105}
+   :left    {:cmd :control-change :note 106}
+   :right   {:cmd :control-change :note 107}
+   :session {:cmd :control-change :note 108}
+   :user1   {:cmd :control-change :note 109}
+   :user2   {:cmd :control-change :note 110}
+   :mixer   {:cmd :control-change :note 111}
+   :vol     {:cmd :note-on        :note   8}
+   :pan     {:cmd :note-on        :note  24}
+   :snda    {:cmd :note-on        :note  40}
+   :sndb    {:cmd :note-on        :note  56}
+   :stop    {:cmd :note-on        :note  72}
+   :trkon   {:cmd :note-on        :note  88}
+   :solo    {:cmd :note-on        :note 104}
+   :arm     {:cmd :note-on        :note 120}})
 
 (def midi->metakeys
   (map-invert metakeys->midi))
 
+(defn colour-single [colour palette]
+  (both-buffers (colours (palette colour))))
+
+(defn colour-msg [key colour palette]
+  (make-ShortMessage
+    (into (metakeys->midi key)
+          {:vel (colour-single colour palette)})))
+
 (defn get-metakey
   "returns the metakey, or nil if it's not a metakey"
   [event]
-  (midi->metakeys [(midi-shortmessage-command (:cmd event)) (:note event)]))
+  (midi->metakeys {:cmd  (midi-shortmessage-command (:cmd event))
+                   :note (:note event)}))
 
 (defn midi-handler [current-callbacks]
   (fn [event ts]
@@ -132,9 +143,7 @@
 (defrecord Launchpad [launchpad-in launchpad-out palette callbacks]
   MetaKeys
   (meta-led-set [this key colour]
-    (let [[cmd note] (metakeys->midi key)
-          msg (make-ShortMessage cmd note (both-buffers (colours (palette colour))))]
-      (midi-send launchpad-out msg)))
+    (midi-send launchpad-out (colour-msg key colour palette)))
   (meta-list-keys [this] (keys metakeys->midi))
   (meta-on-action [this f]
     (swap! callbacks assoc :metakeys-handler f))
@@ -146,7 +155,7 @@
   (led-set-all [this colour]
     (led-frame this (repeat 8 (repeat 8 colour))))
   (led-set [this x y colour]
-    (midi-note-on launchpad-out (coords->midi-note x y) (both-buffers (colours (palette colour)))))
+    (midi-note-on launchpad-out (coords->midi-note x y) (colour-single colour palette)))
   (led-frame [this leds]
     (midi-send launchpad-out display-buffer-0)
     (let [coords (for [y (range 8)
