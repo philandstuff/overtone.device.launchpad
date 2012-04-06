@@ -124,10 +124,6 @@
   (meta-list-keys [this] "lists all the supported keys, informational")
   (meta-on-action [this f] "Set a handler which will be called when a metakey is pressed or released. The handler will be called with two args: event type (:press or :release) and metakey keyword."))
 
-(defn launchpad-set-meta-led [midi-out key palette color]
-  (let [[cmd note] (metakeys->midi key)
-        msg (make-ShortMessage cmd note (both-buffers (colours (palette color))))]
-    (midi-send midi-out msg)))
 
 (def null-callbacks
   {:grid-handler (fn [event x y] nil)
@@ -136,7 +132,9 @@
 (defrecord Launchpad [launchpad-in launchpad-out palette callbacks]
   MetaKeys
   (meta-led-set [this key colour]
-    (launchpad-set-meta-led launchpad-out key palette colour))
+    (let [[cmd note] (metakeys->midi key)
+          msg (make-ShortMessage cmd note (both-buffers (colours (palette colour))))]
+      (midi-send launchpad-out msg)))
   (meta-list-keys [this] (keys metakeys->midi))
   (meta-on-action [this f]
     (swap! callbacks assoc :metakeys-handler f))
