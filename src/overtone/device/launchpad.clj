@@ -1,5 +1,5 @@
 (ns overtone.device.launchpad
-  (:use [overtone.device.grid]
+  (:use [overtone.device.protocols]
         [overtone.midi]
         [clojure.set :only [map-invert]])
   (:require [clojure.stacktrace])
@@ -147,23 +147,42 @@
   (meta-list-keys [this] (keys metakeys->midi))
   (meta-on-action [this f]
     (swap! callbacks assoc :metakeys-handler f))
-  Grid
+
+  ;; input
+  #_(on-action [this key f]   ; currently ignoring key
+      (swap! callbacks assoc :grid-handler f))
+  
+  Dimensions
   (width [this] 8)
   (height [this] 8)
-  (on-action [this key f]   ; currently ignoring key
-    (swap! callbacks assoc :grid-handler f))
-  (led-set-all [this colour]
-    (led-frame this
-               (into {[0 0] 1}
-                     (for [y (range 8)
-                           x (range 8)]
+
+  GridDisplay
+  (light-on [this x y]
+    (light-colour this x y 1))
+  (light-off [this x y]
+    (light-colour this x y 0))
+  (light-on-all [this]
+    (light-colour-all this 1))
+  (light-off-all [this]
+    (light-colour-all this 0))
+  (light-frame [this leds]
+    (light-colour-frame this
+                        (into {}
+                              (map (fn [[[x y] on?]] [[x y] (if on? 1 0)]) leds))))
+
+  ColourGridDisplay
+  (light-colour-all [this colour]
+    (light-colour-frame this
+               (into {}
+                     (for [y (range (height this))
+                           x (range (width this))]
                        [[x y] colour]))))
-  (led-set [this x y colour]
+  (light-colour [this x y colour]
     (midi-note-on launchpad-out (coords->midi-note x y) (colour-single colour palette)))
-  (led-frame [this leds]
+  (light-colour-frame [this leds]
     (midi-send launchpad-out display-buffer-0)
-    (let [coords (for [y (range 8)
-                       x (range 8)]
+    (let [coords (for [y (range (height this))
+                       x (range (width this))]
                    [x y])]
       (doseq [[coord-1 coord-2] (partition 2 coords)]
         (let [colour-1 (colours (palette (get leds coord-1 0)))
