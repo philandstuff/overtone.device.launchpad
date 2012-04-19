@@ -14,7 +14,14 @@ Interact with the Novation Launchpad from within Clojure.
     (led-set grid 1 2 3) ; yellow
     (led-set grid 1 2 0) ; off
     (on-action grid :handler-name (fn [event x y] (led-set grid x y
-    (if (= :press event) 1 0))))
+        (if (= :press event) 1 0))))
+
+    ;; Chessboard pattern
+    (led-frame lp
+       (into {}
+         (for [x (range 8)
+               y (range 8)]
+           [[x y] (if (zero? (rem (+ x y) 2)) 1 2) ] )))
     
     ;; Interact with the peripheral circular buttons using the
     ;; MetaKeys protocol:

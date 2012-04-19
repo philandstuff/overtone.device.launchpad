@@ -153,7 +153,11 @@
   (on-action [this key f]   ; currently ignoring key
     (swap! callbacks assoc :grid-handler f))
   (led-set-all [this colour]
-    (led-frame this (repeat 8 (repeat 8 colour))))
+    (led-frame this
+               (into {[0 0] 1}
+                     (for [y (range 8)
+                           x (range 8)]
+                       [[x y] colour]))))
   (led-set [this x y colour]
     (midi-note-on launchpad-out (coords->midi-note x y) (colour-single colour palette)))
   (led-frame [this leds]
