@@ -54,21 +54,32 @@
   (get-metakey {:cmd ShortMessage/NOTE_ON :note 24 :vel 127}) => :pan
   (get-metakey {:cmd ShortMessage/CONTROL_CHANGE :note 111}) => :mixer)
 
-(let [handler (midi-handler (atom {:grid-handler (fn [event x y] [event x y]) :metakeys-handler (fn [event key] [event key])}))]
-  (fact "Midi handler forwards regular note-on messages to grid handler and translates coordinates"
-    (handler {:cmd ShortMessage/NOTE_ON :vel 127 :note 0   } -1) => [:press   0 0]
-    (handler {:cmd ShortMessage/NOTE_ON :vel 0   :note 0x30} -1) => [:release 0 3]
-    (handler {:cmd ShortMessage/NOTE_ON :vel 127 :note 0x37} -1) => [:press 7 3]
-    (handler {:cmd ShortMessage/NOTE_ON :vel 127 :note 0x77} -1) => [:press 7 7])
+(facts "key-coords"
+  (fact "Events from the square buttons are key events"
+    (key-coords {:cmd ShortMessage/NOTE_ON :vel 127 :note 0   }) => [0 0]
+    (key-coords {:cmd ShortMessage/NOTE_ON :vel 0   :note 0x30}) => [0 3]
+    (key-coords {:cmd ShortMessage/NOTE_ON :vel 127 :note 0x77}) => [7 7])
+  (fact "Events from the metakeys are not key events"
+    (key-coords {:cmd ShortMessage/NOTE_ON :vel 127 :note 0x08}) => falsey
+    (key-coords {:cmd ShortMessage/CONTROL_CHANGE :vel 0 :note 111}) => falsey))
 
-  (fact "Midi handler forwards metakey messages to metakey handler"
-    (handler {:cmd ShortMessage/NOTE_ON :vel 127 :note 0x08} -1) => [:press :vol]
-    (handler {:cmd ShortMessage/CONTROL_CHANGE :vel 0 :note 111} -1) => [:release :mixer])
+(facts "event-map"
+  (fact "Metakey events result in metakey maps"
+    (event-map {:cmd ShortMessage/NOTE_ON :vel 127 :note 0x08}) => {:key :vol :event :press}
+    (event-map {:cmd ShortMessage/CONTROL_CHANGE :vel 0 :note 111}) => {:key :mixer :event :release})
+  (fact "Key events result in key maps"
+    (event-map {:cmd ShortMessage/NOTE_ON :vel 127 :note 0   }) => {:key [0 0] :event :press}
+    (event-map {:cmd ShortMessage/NOTE_ON :vel 0   :note 0x30}) => {:key [0 3] :event :release})
+  (fact "Other events result in falsey values"
+    (event-map {:cmd ShortMessage/NOTE_ON :vel 127 :note 0x09}) => falsey))
 
-  (fact "Midi handler ignores note-on messages with notes it doesn't understand"
-    (handler {:cmd ShortMessage/NOTE_ON :vel 127 :note 0x19} -1) => nil
-    (handler {:cmd ShortMessage/NOTE_ON :vel 127 :note 0xff} -1) => nil)
+(facts "event-type"
+  (fact "Metakey events are of type :launchpad-metakey"
+    (event-type {:cmd ShortMessage/NOTE_ON :vel 127 :note 0x08}) => :launchpad-metakey
+    (event-type {:cmd ShortMessage/CONTROL_CHANGE :vel 0 :note 111}) => :launchpad-metakey)
+  (fact "Key events are of type :launchpad-key"
+    (event-type {:cmd ShortMessage/NOTE_ON :vel 127 :note 0   }) => :launchpad-key
+    (event-type {:cmd ShortMessage/NOTE_ON :vel 0   :note 0x30}) => :launchpad-key)
+  (fact "Other events result in falsey values"
+    (event-type {:cmd ShortMessage/NOTE_ON :vel 127 :note 0x09}) => falsey))
 
-  (fact "Midi handler ignores control-change messages"
-    (handler {:cmd ShortMessage/CONTROL_CHANGE :vel 127 :note 0x7f} -1) => nil
-    (handler {:cmd ShortMessage/CONTROL_CHANGE :vel   0 :note 0x3f} -1) => nil))

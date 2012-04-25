@@ -1,7 +1,8 @@
 (ns overtone.device.launchpad
   (:use [overtone.device.protocols]
         [overtone.midi]
-        [clojure.set :only [map-invert]])
+        [clojure.set :only [map-invert]]
+        [overtone.libs.handlers :as handlers])
   (:require [clojure.stacktrace])
   (:import (javax.sound.midi ShortMessage)))
 
@@ -117,14 +118,29 @@
   (midi->metakeys {:cmd  (midi-shortmessage-command (:cmd event))
                    :note (:note event)}))
 
-(defn midi-handler [current-callbacks]
-  (fn [event ts]
+(defn key-coords [midi-event]
+  (and
+   (= ShortMessage/NOTE_ON (:cmd midi-event))
+   (midi-note->coords (:note midi-event))))
+
+(defn event-map [midi-event]
+  (let [key-event (if (zero? (:vel midi-event)) :release :press)
+        key       (or (get-metakey midi-event)
+                      (key-coords midi-event))]
+    (when key
+      {:event key-event
+       :key key})))
+
+(defn event-type [midi-event]
+  (cond (get-metakey midi-event) :launchpad-metakey
+        (event-map midi-event)   :launchpad-key
+        :else nil))
+
+(defn midi-handler [handler-pool]
+  (fn [midi-event ts]
     (try
-      (let [key-event (if (zero? (:vel event)) :release :press)]
-        (if-let [metakey (get-metakey event)]
-          ((:metakeys-handler @current-callbacks) key-event metakey)
-          (if-let [[x y] (midi-note->coords (:note event))]
-            ((:grid-handler @current-callbacks) key-event x y))))
+      (if-let [event-type (event-type midi-event)]
+        (handlers/event handler-pool event-type (event-map midi-event)))
       (catch Exception e ;Don't let the midi thread die, it's messy
         (clojure.stacktrace/print-stack-trace e)))))
 
@@ -132,30 +148,18 @@
   "A representation binding functionality to meta-keys, assuming they won't be part of the standard
    grid interface, an implementation will report its functionality and let you bind handlers to the metakeys"
   (meta-led-set [this key colour] "If supported, set the color of an led on the key")
-  (meta-list-keys [this] "lists all the supported keys, informational")
-  (meta-on-action [this f] "Set a handler which will be called when a metakey is pressed or released. The handler will be called with two args: event type (:press or :release) and metakey keyword."))
+  (meta-list-keys [this] "lists all the supported keys, informational"))
 
 
-(def null-callbacks
-  {:grid-handler (fn [event x y] nil)
-   :metakeys-handler (fn [event key] nil)})
-
-(defrecord Launchpad [launchpad-in launchpad-out palette callbacks]
+(defrecord Launchpad [launchpad-in launchpad-out palette handler-pool]
   MetaKeys
   (meta-led-set [this key colour]
     (midi-send launchpad-out (colour-msg key colour palette)))
   (meta-list-keys [this] (keys metakeys->midi))
-  (meta-on-action [this f]
-    (swap! callbacks assoc :metakeys-handler f))
 
-  ;; input
-  #_(on-action [this key f]   ; currently ignoring key
-      (swap! callbacks assoc :grid-handler f))
-  
   Dimensions
   (width [this] 8)
   (height [this] 8)
-
   GridDisplay
   (light-on [this x y]
     (light-colour this x y 1))
@@ -202,9 +206,10 @@
   ([palette]
      (if-let [launchpad-in (midi-in "Launchpad")]
        (if-let [launchpad-out (midi-out "Launchpad")]
-         (let [callbacks (atom null-callbacks)
-               lp        (Launchpad. launchpad-in launchpad-out palette callbacks)]
-           (midi-handle-events launchpad-in (midi-handler callbacks))
+         (let [handler-pool (handlers/mk-handler-pool "Launchpad Event Handlers")
+               lp        (Launchpad. launchpad-in launchpad-out palette handler-pool)]
+           (midi-handle-events launchpad-in (midi-handler handler-pool))
            lp)
          (throw (Exception. "Found launchpad for input but couldn't find it for output")))
        (throw (Exception. "Couldn't find launchpad")))))
+
