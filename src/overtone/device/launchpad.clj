@@ -1,8 +1,7 @@
 (ns overtone.device.launchpad
   (:use [overtone.device.protocols]
         [overtone.midi]
-        [clojure.set :only [map-invert]]
-        [overtone.libs.handlers :as handlers])
+        [clojure.set :only [map-invert]])
   (:require [clojure.stacktrace])
   (:import (javax.sound.midi ShortMessage)))
 
@@ -131,27 +130,21 @@
       {:event key-event
        :key key})))
 
-(defn event-type [midi-event]
-  (cond (get-metakey midi-event) :launchpad-metakey
-        (event-map midi-event)   :launchpad-key
-        :else nil))
-
-(defn midi-handler [handler-pool]
+(defn midi-handler [handler-atom]
   (fn [midi-event ts]
     (try
-      (if-let [event-type (event-type midi-event)]
-        (handlers/event handler-pool event-type (event-map midi-event)))
+      (@handler-atom (event-map midi-event))
       (catch Exception e ;Don't let the midi thread die, it's messy
         (clojure.stacktrace/print-stack-trace e)))))
 
 (defprotocol MetaKeys
   "A representation binding functionality to meta-keys, assuming they won't be part of the standard
-   grid interface, an implementation will report its functionality and let you bind handlers to the metakeys"
+   grid interface, an implementation will report its functionality"
   (meta-led-set [this key colour] "If supported, set the color of an led on the key")
   (meta-list-keys [this] "lists all the supported keys, informational"))
 
 
-(defrecord Launchpad [launchpad-in launchpad-out palette handler-pool]
+(defrecord Launchpad [launchpad-in launchpad-out palette handler-atom]
   MetaKeys
   (meta-led-set [this key colour]
     (midi-send launchpad-out (colour-msg key colour palette)))
@@ -206,9 +199,8 @@
   ([palette]
      (if-let [launchpad-in (midi-in "Launchpad")]
        (if-let [launchpad-out (midi-out "Launchpad")]
-         (let [handler-pool (handlers/mk-handler-pool "Launchpad Event Handlers")
-               lp        (Launchpad. launchpad-in launchpad-out palette handler-pool)]
-           (midi-handle-events launchpad-in (midi-handler handler-pool))
+         (let [lp (Launchpad. launchpad-in launchpad-out palette (atom (fn [event] nil)))]
+           (midi-handle-events launchpad-in (midi-handler (:handler-atom lp)))
            lp)
          (throw (Exception. "Found launchpad for input but couldn't find it for output")))
        (throw (Exception. "Couldn't find launchpad")))))

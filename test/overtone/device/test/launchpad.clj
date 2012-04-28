@@ -73,13 +73,4 @@
   (fact "Other events result in falsey values"
     (event-map {:cmd ShortMessage/NOTE_ON :vel 127 :note 0x09}) => falsey))
 
-(facts "event-type"
-  (fact "Metakey events are of type :launchpad-metakey"
-    (event-type {:cmd ShortMessage/NOTE_ON :vel 127 :note 0x08}) => :launchpad-metakey
-    (event-type {:cmd ShortMessage/CONTROL_CHANGE :vel 0 :note 111}) => :launchpad-metakey)
-  (fact "Key events are of type :launchpad-key"
-    (event-type {:cmd ShortMessage/NOTE_ON :vel 127 :note 0   }) => :launchpad-key
-    (event-type {:cmd ShortMessage/NOTE_ON :vel 0   :note 0x30}) => :launchpad-key)
-  (fact "Other events result in falsey values"
-    (event-type {:cmd ShortMessage/NOTE_ON :vel 127 :note 0x09}) => falsey))
 
